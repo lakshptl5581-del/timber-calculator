@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Timber CFT & Log Calculator</title>
+  <meta name="theme-color" content="#1e293b" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    @media print {
+      body * { visibility: hidden; }
+      #printableChallan, #printableChallan * { visibility: visible; }
+      #printableChallan { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans pb-24">
+
+  <!-- TOP HEADER -->
+  <header class="bg-slate-900 text-white sticky top-0 z-40 shadow-md">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="bg-amber-600 text-white p-2 rounded-lg text-lg">
+          <i class="fa-solid fa-tree"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg leading-tight">Timber & Log CFT</h1>
+          <p class="text-xs text-slate-400">Sawmill Tally & Billing</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="openScannerModal()" class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow transition">
+          <i class="fa-solid fa-camera"></i>
+          <span>Scan Paper</span>
+        </button>
+        <button onclick="clearTallySheet()" title="Clear All" class="text-slate-400 hover:text-rose-400 p-2">
+          <i class="fa-solid fa-trash-can"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 py-4 space-y-4">
+
+    <!-- SUMMARY CARDS -->
+    <div class="grid grid-cols-3 gap-2 sm:gap-4">
+      <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 text-center">
+        <span class="text-xs font-medium text-slate-500 uppercase">Pieces</span>
+        <div id="statTotalQty" class="text-xl sm:text-2xl font-black text-slate-800">0</div>
+      </div>
+      <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 text-center">
+        <span class="text-xs font-medium text-slate-500 uppercase">Total CFT</span>
+        <div id="statTotalCFT" class="text-xl sm:text-2xl font-black text-amber-600">0.00</div>
+        <div id="statTotalCBM" class="text-[10px] text-slate-400">0.000 CBM</div>
+      </div>
+      <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 text-center">
+        <span class="text-xs font-medium text-slate-500 uppercase">Total Bill</span>
+        <div id="statTotalAmt" class="text-xl sm:text-2xl font-black text-emerald-600">₹0</div>
+      </div>
+    </div>
+
+    <!-- CALCULATION INPUT CARD -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <!-- Mode Tabs -->
+      <div class="flex border-b border-slate-200 bg-slate-50">
+        <button id="tabSawn" onclick="switchMode('sawn')" class="flex-1 py-3 text-sm font-semibold text-amber-700 border-b-2 border-amber-600 bg-white flex items-center justify-center gap-2">
+          <i class="fa-solid fa-layer-group"></i> Sawn Timber (Planks)
+        </button>
+        <button id="tabRound" onclick="switchMode('round')" class="flex-1 py-3 text-sm font-semibold text-slate-500 hover:text-slate-700 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-circle-notch"></i> Round Logs (Girth)
+        </button>
+      </div>
+
+      <div class="p-4 space-y-4">
+        <!-- Wood Species & Rate -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Wood Species</label>
+            <select id="speciesInput" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <option value="Teak">Teak (Sagwan)</option>
+              <option value="Sal">Sal</option>
+              <option value="Pine">Pine</option>
+              <option value="Sheesham">Sheesham</option>
+              <option value="Oak">Oak</option>
+              <option value="Eucalyptus">Eucalyptus</option>
+              <option value="Babool">Babool / Acacia</option>
+              <option value="Other">Mixed / Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Rate (₹ per CFT)</label>
+            <input type="number" id="rateInput" value="1800" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="e.g. 1500" oninput="calculateCurrent()" />
+          </div>
+        </div>
+
+        <!-- Inputs for SAWN TIMBER -->
+        <div id="sawnInputs" class="space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Length (Feet)</label>
+              <input type="number" step="any" id="sawnLengthFt" value="10" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500" oninput="calculateCurrent()" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Extra Inches (Optional)</label>
+              <input type="number" step="any" id="sawnLengthIn" value="0" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="0" oninput="calculateCurrent()" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Width (Inches)</label>
+              <input type="number" step="any" id="sawnWidth" value="5" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500" oninput="calculateCurrent()" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Thickness (Inches)</label>
+              <input type="number" step="any" id="sawnThick" value="2" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500" oninput="calculateCurrent()" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Inputs for ROUND LOGS -->
+        <div id="roundInputs" class="hidden space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Log Length (Feet)</label>
+              <input type="number" step="any" id="roundLengthFt" value="12" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500" oninput="calculateCurrent()" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Extra Inches (Optional)</label>
+              <input type="number" step="any" id="roundLengthIn" value="0" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" oninput="calculateCurrent()" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Girth / Circumference (Inches)</label>
+            <input type="number" step="any" id="roundGirth" value="44" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500" oninput="calculateCurrent()" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Log Formula</label>
+            <select id="logFormula" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-medium focus:outline-none" onchange="calculateCurrent()">
+              <option value="hoppus">Quarter Girth (Hoppus Rule) - Sawmill Standard: (G/4)² × L / 144</option>
+              <option value="cylindrical">True Cylindrical: (G² × L) / 2304</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Quantity & Instant Feedback Bar -->
+        <div class="flex items-center gap-3 pt-2">
+          <div class="w-1/3">
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Quantity</label>
+            <input type="number" id="qtyInput" value="1" min="1" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm font-bold text-center text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500" oninput="calculateCurrent()" />
+          </div>
+          <div class="flex-1 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 flex items-center justify-between">
+            <div>
+              <div class="text-[10px] uppercase font-bold text-amber-700 tracking-wider">Unit Volume</div>
+              <div class="text-base font-extrabold text-amber-900"><span id="previewUnitCFT">0.00</span> <span class="text-xs font-normal">CFT</span></div>
+            </div>
+            <div class="text-right">
+              <div class="text-[10px] uppercase font-bold text-amber-700 tracking-wider">Subtotal</div>
+              <div class="text-base font-extrabold text-emerald-700">₹<span id="previewSubtotal">0</span></div>
+            </div>
+          </div>
+        </div>
+
+        <button onclick="addEntryToTally()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl shadow-md flex items-center justify-center gap-2 transition active:scale-[0.98]">
+          <i class="fa-solid fa-plus-circle text-lg"></i>
+          <span>Add to Tally Sheet</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- TALLY SHEET LIST -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="p-3.5 border-b border-slate-200 flex items-center justify-between">
+        <h2 class="font-bold text-sm text-slate-800 flex items-center gap-2">
+          <i class="fa-solid fa-clipboard-list text-amber-600"></i>
+          <span>Current Tally Items (<span id="tallyItemCount">0</span>)</span>
+        </h2>
+        <div class="flex items-center gap-2">
+          <button onclick="shareWhatsApp()" class="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition">
+            <i class="fa-brands fa-whatsapp text-sm"></i> WhatsApp
+          </button>
+          <button onclick="printChallan()" class="text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition">
+            <i class="fa-solid fa-print"></i> Challan
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-50 text-slate-500 uppercase border-b border-slate-200 text-[10px]">
+            <tr>
+              <th class="p-2.5">#</th>
+              <th class="p-2.5">Species / Dimensions</th>
+              <th class="p-2.5 text-center">Qty</th>
+              <th class="p-2.5 text-right">CFT</th>
+              <th class="p-2.5 text-right">Amount</th>
+              <th class="p-2.5 text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody id="tallyTableBody" class="divide-y divide-slate-100">
+            <!-- Dynamic rows inserted here -->
+          </tbody>
+        </table>
+      </div>
+      <div id="emptyTallyState" class="py-12 text-center text-slate-400">
+        <i class="fa-solid fa-calculator text-3xl mb-2 text-slate-300"></i>
+        <p class="text-xs">No entries added yet. Calculate and add planks/logs above!</p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- SCANNER MODAL -->
+  <div id="scannerModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div class="flex items-center gap-2">
+          <div class="bg-amber-100 text-amber-700 p-2 rounded-lg"><i class="fa-solid fa-camera"></i></div>
+          <h3 class="font-bold text-slate-800">Scan Paper Tally Slip</h3>
+        </div>
+        <button onclick="closeScannerModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <p class="text-xs text-slate-500 leading-relaxed">
+        Take a picture of the worker's handwritten slip or test with our sample wood tally slip.
+      </p>
+
+      <div class="space-y-3">
+        <input type="file" id="paperPhotoInput" accept="image/*" capture="environment" class="hidden" onchange="handleImageSelected(event)" />
+        <button onclick="document.getElementById('paperPhotoInput').click()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 text-sm shadow">
+          <i class="fa-solid fa-camera"></i> Open Camera / Choose Photo
+        </button>
+
+        <div class="relative flex py-1 items-center">
+          <div class="flex-grow border-t border-slate-200"></div>
+          <span class="flex-shrink mx-2 text-[10px] text-slate-400 uppercase font-bold">Or Demo</span>
+          <div class="flex-grow border-t border-slate-200"></div>
+        </div>
+
+        <button onclick="simulateMockWorkerScan()" class="w-full bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 text-xs">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Test with Sample Worker Slip
+        </button>
+      </div>
+
+      <div id="scanStatus" class="hidden text-center py-2">
+        <div class="inline-block animate-spin text-amber-600 text-lg mb-1"><i class="fa-solid fa-circle-notch"></i></div>
+        <p class="text-xs text-slate-500 font-medium">Extracting measurements from paper...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRINTABLE CHALLAN CONTAINER (Hidden on screen, shown in print) -->
+  <div id="printableChallan" class="hidden p-8 bg-white">
+    <div class="text-center border-b pb-4 mb-4">
+      <h1 class="text-2xl font-black uppercase tracking-wide">TIMBER DELIVERY CHALLAN</h1>
+      <p class="text-xs text-gray-500">Sawmill & Lumber Measurement Slip</p>
+    </div>
+    <div class="flex justify-between text-xs mb-4">
+      <div><strong>Date:</strong> <span id="printDate"></span></div>
+      <div><strong>Challan No:</strong> <span id="printChallanNo">#TC-1042</span></div>
+    </div>
+    <table class="w-full border-collapse border border-gray-300 text-xs mb-4">
+      <thead>
+        <tr class="bg-gray-100">
+          <th class="border border-gray-300 p-2 text-left">#</th>
+          <th class="border border-gray-300 p-2 text-left">Species & Size</th>
+          <th class="border border-gray-300 p-2 text-center">Qty</th>
+          <th class="border border-gray-300 p-2 text-right">CFT</th>
+          <th class="border border-gray-300 p-2 text-right">Rate</th>
+          <th class="border border-gray-300 p-2 text-right">Total (₹)</th>
+        </tr>
+      </thead>
+      <tbody id="printTableBody"></tbody>
+    </table>
+    <div class="flex justify-end text-sm font-bold border-t pt-2 mb-8">
+      <div class="text-right">
+        <div>Total CFT: <span id="printTotalCFT"></span></div>
+        <div>Grand Total: ₹<span id="printTotalAmt"></span></div>
+      </div>
+    </div>
+    <div class="flex justify-between text-xs pt-12 border-t border-dashed">
+      <div>Receiver's Signature</div>
+      <div>Authorized Signatory</div>
+    </div>
+  </div>
+
+  <script>
+    // State management
+    let currentMode = 'sawn';
+    let tallyItems = JSON.parse(localStorage.getItem('timber_tally_v1') || '[]');
+
+    function saveState() {
+      localStorage.setItem('timber_tally_v1', JSON.stringify(tallyItems));
+      renderTallyTable();
+    }
+
+    function switchMode(mode) {
+      currentMode = mode;
+      const sawnBtn = document.getElementById('tabSawn');
+      const roundBtn = document.getElementById('tabRound');
+      const sawnInputs = document.getElementById('sawnInputs');
+      const roundInputs = document.getElementById('roundInputs');
+
+      if (mode === 'sawn') {
+        sawnBtn.className = "flex-1 py-3 text-sm font-semibold text-amber-700 border-b-2 border-amber-600 bg-white flex items-center justify-center gap-2";
+        roundBtn.className = "flex-1 py-3 text-sm font-semibold text-slate-500 hover:text-slate-700 flex items-center justify-center gap-2";
+        sawnInputs.classList.remove('hidden');
+        roundInputs.classList.add('hidden');
+      } else {
+        roundBtn.className = "flex-1 py-3 text-sm font-semibold text-amber-700 border-b-2 border-amber-600 bg-white flex items-center justify-center gap-2";
+        sawnBtn.className = "flex-1 py-3 text-sm font-semibold text-slate-500 hover:text-slate-700 flex items-center justify-center gap-2";
+        roundInputs.classList.remove('hidden');
+        sawnInputs.classList.add('hidden');
+      }
+      calculateCurrent();
+    }
+
+    function calculateCurrent() {
+      const rate = parseFloat(document.getElementById('rateInput').value) || 0;
+      const qty = parseInt(document.getElementById('qtyInput').value) || 1;
+      let unitCFT = 0;
+
+      if (currentMode === 'sawn') {
+        const ft = parseFloat(document.getElementById('sawnLengthFt').value) || 0;
+        const inches = parseFloat(document.getElementById('sawnLengthIn').value) || 0;
+        const totalLengthFt = ft + (inches / 12);
+        const w = parseFloat(document.getElementById('sawnWidth').value) || 0;
+        const t = parseFloat(document.getElementById('sawnThick').value) || 0;
+
+        // Sawmill standard lumber formula: (L_ft * W_in * T_in) / 144
+        unitCFT = (totalLengthFt * w * t) / 144;
+      } else {
+        const ft = parseFloat(document.getElementById('roundLengthFt').value) || 0;
+        const inches = parseFloat(document.getElementById('roundLengthIn').value) || 0;
+        const totalLengthFt = ft + (inches / 12);
+        const girth = parseFloat(document.getElementById('roundGirth').value) || 0;
+        const formula = document.getElementById('logFormula').value;
+
+        if (formula === 'hoppus') {
+          // Quarter Girth Hoppus: ((Girth / 4)^2 * Length) / 144
+          unitCFT = (Math.pow(girth / 4, 2) * totalLengthFt) / 144;
+        } else {
+          // Cylindrical: (Girth^2 * Length) / 2304
+          unitCFT = (Math.pow(girth, 2) * totalLengthFt) / 2304;
+        }
+      }
+
+      const totalCFT = unitCFT * qty;
+      const subtotal = totalCFT * rate;
+
+      document.getElementById('previewUnitCFT').innerText = unitCFT.toFixed(2);
+      document.getElementById('previewSubtotal').innerText = Math.round(subtotal).toLocaleString('en-IN');
+
+      return { unitCFT, totalCFT, subtotal, rate, qty };
+    }
+
+    function addEntryToTally() {
+      const calc = calculateCurrent();
+      const species = document.getElementById('speciesInput').value;
+      let desc = '';
+
+      if (currentMode === 'sawn') {
+        const lFt = document.getElementById('sawnLengthFt').value;
+        const lIn = document.getElementById('sawnLengthIn').value;
+        const w = document.getElementById('sawnWidth').value;
+        const t = document.getElementById('sawnThick').value;
+        desc = `${lFt}'${lIn > 0 ? lIn + '"' : ''} × ${w}" × ${t}"`;
+      } else {
+        const lFt = document.getElementById('roundLengthFt').value;
+        const lIn = document.getElementById('roundLengthIn').value;
+        const g = document.getElementById('round
